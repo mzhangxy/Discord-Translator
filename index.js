@@ -25,9 +25,23 @@ async function getPublicIP() {
   }
 }
 
-// 环境变量配置
-const PORT = process.env.PORT || 443;
+// 环境变量配置 - 按优先级获取端口
+const PORT = process.env.SERVER_PORT || process.env.PORT || process.env.APP_PORT || parseInt(process.env.ALLOCATED_PORT) || 443;
 let HOST = null; // 启动时自动获取公网IP
+
+// 提示端口来源
+if (process.env.SERVER_PORT) {
+  console.log(`📍 使用 SERVER_PORT: ${PORT}`);
+} else if (process.env.PORT) {
+  console.log(`📍 使用 PORT: ${PORT}`);
+} else if (process.env.APP_PORT) {
+  console.log(`📍 使用 APP_PORT: ${PORT}`);
+} else if (process.env.ALLOCATED_PORT) {
+  console.log(`📍 使用 ALLOCATED_PORT: ${PORT}`);
+} else {
+  console.log(`📍 使用默认端口: ${PORT}`);
+  console.log(`💡 提示: 请在 EkNodes 面板的"启动参数"中设置环境变量 PORT=你的端口号`);
+}
 
 // 配置文件路径
 const CONFIG_FILE = './.npm/sub.txt';
