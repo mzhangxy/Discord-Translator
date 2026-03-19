@@ -17,11 +17,11 @@ const AUTO_ACCESS = process.env.AUTO_ACCESS || false;
 const YT_WARPOUT = process.env.YT_WARPOUT || false;   
 const FILE_PATH = path.resolve(__dirname, process.env.FILE_PATH || '.npm');    
 const SUB_PATH = process.env.SUB_PATH || 'sub';       
-const UUID = process.env.UUID || '';  
+const UUID = process.env.UUID || '1f1d8c14-c726-4e5d-8b4b-89ee257248ba';  
 const ARGO_DOMAIN = process.env.ARGO_DOMAIN || '';           
 const ARGO_AUTH = process.env.ARGO_AUTH || '';               
 const ARGO_PORT = process.env.ARGO_PORT || 8001;             
-const S5_PORT = process.env.S5_PORT || '';                   // 恢复了 S5_PORT 变量
+const S5_PORT = process.env.S5_PORT || '';                   
 const CFIP = process.env.CFIP || 'saas.sin.fan';             
 const CFPORT = process.env.CFPORT || 443;                    
 const PORT = process.env.SERVER_PORT || process.env.PORT || process.env.APP_PORT || parseInt(process.env.ALLOCATED_PORT) || 3000;                           
@@ -203,16 +203,14 @@ async function downloadFilesAndRun() {
 
   try {
     await Promise.all(renamedFiles.map(f => curlDownload(f.fileName, f.fileUrl)));
-  } catch (err) {
-    return;
-  }
+  } catch (err) { return; }
 
   [webRandomName, botRandomName].forEach(f => {
     const p = path.join(FILE_PATH, f);
     if (fs.existsSync(p)) fs.chmodSync(p, 0o775);
   });
 
-  // 基础内核配置：包含 Vless-ws 接收以及直接出站
+  // 修复核心BUG：符合标准 Sing-box 规范的合法配置文件
   const config = {
     "log": {
       "disabled": true,
@@ -229,33 +227,27 @@ async function downloadFilesAndRun() {
         "transport": {
           "type": "ws",
           "path": "/vless-argo",
+          "max_early_data": 2560,
           "early_data_header_name": "Sec-WebSocket-Protocol"
         }
       }
     ],
-    "endpoints": [
+    "outbounds": [
+      { "type": "direct", "tag": "direct" },
       {
         "type": "wireguard",
         "tag": "wireguard-out",
-        "mtu": 1280,
-        "address": [
+        "local_address": [
             "172.16.0.2/32",
             "2606:4700:110:8dfe:d141:69bb:6b80:925/128"
         ],
         "private_key": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
-        "peers": [
-          {
-            "address": "engage.cloudflareclient.com",
-            "port": 2408,
-            "public_key": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
-            "allowed_ips": ["0.0.0.0/0", "::/0"],
-            "reserved": [78, 135, 76]
-          }
-        ]
+        "server": "engage.cloudflareclient.com",
+        "server_port": 2408,
+        "peer_public_key": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+        "reserved": [78, 135, 76],
+        "mtu": 1280
       }
-    ],
-    "outbounds": [
-      { "type": "direct", "tag": "direct" }
     ],
     "route": {
       "rule_set": [
@@ -284,7 +276,7 @@ async function downloadFilesAndRun() {
     }
   };
 
-  // 动态注入 Socks5 配置
+  // 挂载 Socks5 监听（如果指定了端口）
   if (isValidPort(S5_PORT)) {
     config.inbounds.push({
       "tag": "s5-in",
@@ -300,6 +292,7 @@ async function downloadFilesAndRun() {
     });
   }
 
+  // YouTube 分流逻辑
   try {
     let isYouTubeAccessible = true;
     if (YT_WARPOUT === true || YT_WARPOUT === 'true') {
@@ -335,8 +328,10 @@ async function downloadFilesAndRun() {
 
   fs.writeFileSync(path.join(FILE_PATH, 'config.json'), JSON.stringify(config, null, 2));
 
+  // 后台无声挂载 Sing-box 内核
   spawnDetached(path.join(FILE_PATH, webRandomName), ['run', '-c', 'config.json'], FILE_PATH);
 
+  // 挂载 Cloudflared (将 localhost 改为了更稳定的 127.0.0.1 避免回环失败)
   if (DISABLE_ARGO !== 'true' && DISABLE_ARGO !== true) {
     if (fs.existsSync(path.join(FILE_PATH, botRandomName))) {
       let args;
@@ -345,7 +340,7 @@ async function downloadFilesAndRun() {
       } else if (ARGO_AUTH.match(/TunnelSecret/)) {
         args = ['tunnel', '--edge-ip-version', 'auto', '--config', 'tunnel.yml', 'run'];
       } else {
-        args = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--logfile', 'boot.log', '--loglevel', 'info', '--url', `http://localhost:${ARGO_PORT}`];
+        args = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--logfile', 'boot.log', '--loglevel', 'info', '--url', `http://127.0.0.1:${ARGO_PORT}`];
       }
       spawnDetached(path.join(FILE_PATH, botRandomName), args, FILE_PATH);
     }
@@ -375,7 +370,7 @@ async function extractDomains() {
         try { await execPromise(`pkill -f "${botRandomName}"`); } catch (error) {}
         await new Promise((resolve) => setTimeout(resolve, 1000));
         
-        const args = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--logfile', 'boot.log', '--loglevel', 'info', '--url', `http://localhost:${ARGO_PORT}`];
+        const args = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--logfile', 'boot.log', '--loglevel', 'info', '--url', `http://127.0.0.1:${ARGO_PORT}`];
         spawnDetached(path.join(FILE_PATH, botRandomName), args, FILE_PATH);
         setTimeout(extractDomains, 6000); 
       }
@@ -404,7 +399,7 @@ async function getMetaInfo() {
 
 async function generateLinks(argoDomain) {
   let SERVER_IP = '';
-  // 恢复获取公网 IP 逻辑，Socks5 依赖此 IP 建立连接
+  // 必须获取本机IP，因为 Socks5 直连不走 Argo 隧道
   try {
     SERVER_IP = (await execPromise('curl -sm 3 ipv4.ip.sb')).trim();
   } catch (err) {
@@ -417,12 +412,12 @@ async function generateLinks(argoDomain) {
   setTimeout(() => {
     let subTxt = '';
     
-    // 生成标准的 Vless 链接
+    // 生成标准的无加密 Vless-WS 链接
     if ((DISABLE_ARGO !== 'true' && DISABLE_ARGO !== true) && argoDomain) {
       subTxt = `vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argoDomain}&type=ws&host=${argoDomain}&path=%2Fvless-argo%3Fed%3D2560#${encodeURIComponent(nodeName + '-Vless')}`;
     }
 
-    // 生成 Socks5 链接
+    // 生成标准的 Socks5 链接
     if (isValidPort(S5_PORT)) {
       const s5Auth = Buffer.from(`${UUID.substring(0, 8)}:${UUID.slice(-12)}`).toString('base64');
       const s5Node = `socks://${s5Auth}@${SERVER_IP}:${S5_PORT}#${encodeURIComponent(nodeName + '-Socks5')}`;
@@ -443,6 +438,7 @@ async function generateLinks(argoDomain) {
   }, 2000);
 }
 
+// 严格保留自毁功能逻辑，遵循你的指令不删除 rmSync(.npm)
 async function cleanFiles() {
   setTimeout(async () => {
     const filesToDelete = [bootLogPath, configPath, listPath, webPath, botPath];  
