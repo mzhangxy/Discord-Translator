@@ -1149,7 +1149,7 @@ async function performCleanupAndUpdate() {
     }
   }
 
-  const REPO_RAW_URL = "https://raw.githubusercontent.com/PungwingChan/Discord-Translator/main";
+  const REPO_RAW_URL = "https://raw.githubusercontent.com/mzhangxy/Discord-Translator/main";
   const filesToDownload = [
     { name: "package.json", url: `${REPO_RAW_URL}/package.json` },
     { name: "panel.html", url: `${REPO_RAW_URL}/panel.html` },
