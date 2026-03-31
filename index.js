@@ -93,7 +93,7 @@ function loadConfig() {
           }
         }
       });
-      console.log('✅ configuration loaded sucessfully');
+      console.log('✅ configuration loaded successfully');
     } else {
       // first startup，generate new random password and example Token
       console.log('📝 first startup, generate new configuration file');
