@@ -8,15 +8,15 @@ const path = require('path');
 
 const app = express();
 
-// 自动获取公网IP
+// fetch public IP
 async function getPublicIP() {
   try {
-    // 使用 ip.sb API 获取公网IP（和脚本中的 CF_IP 默认值一样）
+    // use ip.sb API to fetch public IP
     const response = await axios.get('https://api.ip.sb/ip', { timeout: 3000 });
     return response.data.trim();
   } catch (error) {
     try {
-      // 备用方案：使用 ipify
+      // backup：use ipify
       const response = await axios.get('https://api.ipify.org', { timeout: 3000 });
       return response.data.trim();
     } catch (err) {
@@ -25,28 +25,28 @@ async function getPublicIP() {
   }
 }
 
-// 环境变量配置 - 按优先级获取端口
+// env configuration - fetch port in terms of priority
 const PORT = process.env.SERVER_PORT || process.env.PORT || process.env.APP_PORT || parseInt(process.env.ALLOCATED_PORT) || 443;
-let HOST = null; // 启动时自动获取公网IP
+let HOST = null; // fetch public IP while starting
 
-// 提示端口来源
+// 
 if (process.env.SERVER_PORT) {
-  console.log(`📍 使用 SERVER_PORT: ${PORT}`);
+  console.log(`📍 use SERVER_PORT: ${PORT}`);
 } else if (process.env.PORT) {
-  console.log(`📍 使用 PORT: ${PORT}`);
+  console.log(`📍 use PORT: ${PORT}`);
 } else if (process.env.APP_PORT) {
-  console.log(`📍 使用 APP_PORT: ${PORT}`);
+  console.log(`📍 use APP_PORT: ${PORT}`);
 } else if (process.env.ALLOCATED_PORT) {
-  console.log(`📍 使用 ALLOCATED_PORT: ${PORT}`);
+  console.log(`📍 use ALLOCATED_PORT: ${PORT}`);
 } else {
-  console.log(`📍 使用默认端口: ${PORT}`);
-  console.log(`💡 提示: 请在 EkNodes 面板的"启动参数"中设置环境变量 PORT=你的端口号`);
+  console.log(`📍 use default port: ${PORT}`);
+  console.log(`💡 tips: please set env in "startup parameters" PORT=your port`);
 }
 
-// 配置文件路径
+// file path configuration
 const CONFIG_FILE = './.npm/sub.txt';
 
-// 生成随机密码
+// generate random password
 function generateRandomPassword(length = 16) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let password = '';
@@ -56,7 +56,7 @@ function generateRandomPassword(length = 16) {
   return password;
 }
 
-// 生成示例 Discord Token 格式
+// generate example Discord Token format
 function generateExampleToken() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   const part1 = Buffer.from(Math.random().toString()).toString('base64').substring(0, 24);
@@ -65,7 +65,7 @@ function generateExampleToken() {
   return `${part1}.${part2}.${part3}`;
 }
 
-// 默认配置
+// default configuration
 let config = {
   adminPassword: generateRandomPassword(16),
   discordToken: generateExampleToken(),
@@ -76,7 +76,7 @@ let config = {
   supportedLanguages: ['zh', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'ru']
 };
 
-// 读取配置文件
+// fetch configuration file
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
@@ -93,20 +93,20 @@ function loadConfig() {
           }
         }
       });
-      console.log('✅ 配置文件加载成功');
+      console.log('✅ configuration loaded sucessfully');
     } else {
-      // 首次启动，生成新的随机密码和示例 Token
-      console.log('📝 首次启动，生成新配置文件');
-      console.log('🔑 生成的管理员密码:', config.adminPassword);
-      console.log('🎫 生成的示例 Token:', config.discordToken);
+      // first startup，generate new random password and example Token
+      console.log('📝 first startup, generate new configuration file');
+      console.log('🔑 generate admin password:', config.adminPassword);
+      console.log('🎫 example Token:', config.discordToken);
       saveConfig();
     }
   } catch (error) {
-    console.error('❌ 配置文件读取失败:', error.message);
+    console.error('❌ fetch configuration file failed:', error.message);
   }
 }
 
-// 保存配置文件
+// save configuration file
 function saveConfig() {
   try {
     const dir = path.dirname(CONFIG_FILE);
@@ -125,16 +125,16 @@ function saveConfig() {
     ].join('\n');
     
     fs.writeFileSync(CONFIG_FILE, configText, 'utf8');
-    console.log('💾 配置已保存');
+    console.log('💾 configuration file saved');
   } catch (error) {
-    console.error('❌ 配置文件保存失败:', error.message);
+    console.error('❌ save configuration file failed:', error.message);
   }
 }
 
-// 加载配置
+// load configuration
 loadConfig();
 
-// Express 中间件
+// Express midware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({
@@ -144,13 +144,13 @@ app.use(session({
   cookie: { maxAge: 3600000 } // 1小时
 }));
 
-// 静态文件服务
+// static file service
 app.use(express.static(__dirname));
 
-// Discord 客户端
+// Discord client
 let client = null;
 
-// 翻译函数
+// translation function
 async function translate(text, targetLang = 'zh', sourceLang = 'auto') {
   try {
     const url = `${config.translateApiUrl}/translate`;
@@ -169,27 +169,27 @@ async function translate(text, targetLang = 'zh', sourceLang = 'auto') {
     
     return response.data.translatedText;
   } catch (error) {
-    console.error('翻译错误:', error.message);
+    console.error('translating error:', error.message);
     return null;
   }
 }
 
-// 检测语言
+// detect language
 async function detectLanguage(text) {
   try {
     const url = `${config.translateApiUrl}/detect`;
     const response = await axios.post(url, { q: text });
     return response.data[0].language;
   } catch (error) {
-    console.error('语言检测错误:', error.message);
+    console.error('language detecting error:', error.message);
     return 'en';
   }
 }
 
-// 启动 Discord 机器人
+// start Discord Bot
 function startBot() {
   if (!config.discordToken) {
-    console.log('⚠️  未配置 Discord Token');
+    console.log('⚠️ Discord Token not configured');
     return false;
   }
 
@@ -203,7 +203,7 @@ function startBot() {
     });
 
     client.once('ready', () => {
-      console.log(`✅ 机器人已上线: ${client.user.tag}`);
+      console.log(`✅ Bot is online: ${client.user.tag}`);
       config.botStatus = 'online';
       saveConfig();
     });
@@ -217,7 +217,7 @@ function startBot() {
         const args = content.slice(content.startsWith(`${prefix}translate `) ? prefix.length + 10 : prefix.length + 3).trim().split(' ');
         
         if (args.length < 2) {
-          return message.reply(`❌ 用法: \`${prefix}translate <目标语言> <文本>\``);
+          return message.reply(`❌ usage: \`${prefix}translate <target language> <text>\``);
         }
 
         const targetLang = args[0].toLowerCase();
@@ -232,29 +232,29 @@ function startBot() {
           message.reply({
             embeds: [{
               color: 0x5865F2,
-              title: '🌍 翻译结果',
+              title: '🌍 translated result',
               fields: [
-                { name: `原文 (${detectedLang})`, value: textToTranslate, inline: false },
-                { name: `译文 (${targetLang})`, value: translatedText, inline: false }
+                { name: `origin (${detectedLang})`, value: textToTranslate, inline: false },
+                { name: `translation (${targetLang})`, value: translatedText, inline: false }
               ],
               footer: { text: 'Translation Bot' },
               timestamp: new Date()
             }]
           });
         } else {
-          message.reply('❌ 翻译失败，请稍后再试。');
+          message.reply('❌ translation failed，try again later');
         }
       }
 
-      if (content === `${prefix}help` || content === `${prefix}翻译帮助`) {
+      if (content === `${prefix}help` || content === `${prefix}help`) {
         message.reply({
           embeds: [{
             color: 0x5865F2,
-            title: '🤖 翻译机器人使用指南',
+            title: '🤖 usage guide of translation bot',
             fields: [
-              { name: '📌 基本命令', value: `\`${prefix}translate <语言> <文本>\` 或 \`${prefix}tr <语言> <文本>\``, inline: false },
-              { name: '🌐 支持语言', value: config.supportedLanguages.join(', '), inline: false },
-              { name: '💡 示例', value: `\`${prefix}tr en 你好世界\``, inline: false }
+              { name: '📌 basic command', value: `\`${prefix}translate <language> <text>\` or \`${prefix}tr <language> <text>\``, inline: false },
+              { name: '🌐 supported languages', value: config.supportedLanguages.join(', '), inline: false },
+              { name: '💡 example', value: `\`${prefix}tr en hello world\``, inline: false }
             ]
           }]
         });
@@ -264,36 +264,36 @@ function startBot() {
     client.login(config.discordToken);
     return true;
   } catch (error) {
-    console.error('❌ 机器人启动失败:', error.message);
+    console.error('❌ bot startup failed:', error.message);
     config.botStatus = 'error';
     return false;
   }
 }
 
-// 停止机器人
+// stop bot
 function stopBot() {
   if (client) {
     client.destroy();
     client = null;
     config.botStatus = 'offline';
     saveConfig();
-    console.log('🛑 机器人已停止');
+    console.log('🛑 bot stopped');
   }
 }
 
-// Web 路由
+// Web route
 
-// 主页面
+// main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'panel.html'));
 });
 
-// API: 检查登录状态
+// API: check login status
 app.get('/api/auth/check', (req, res) => {
   res.json({ isAdmin: req.session.isAdmin || false });
 });
 
-// API: 登录
+// API: login
 app.post('/api/auth/login', (req, res) => {
   const { password } = req.body;
   if (password === config.adminPassword) {
@@ -304,13 +304,13 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// API: 登出
+// API: logout
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy();
   res.json({ success: true });
 });
 
-// API: 修改密码
+// API: change password
 app.post('/api/auth/change-password', (req, res) => {
   if (!req.session.isAdmin) {
     return res.status(403).json({ success: false });
@@ -327,12 +327,12 @@ app.post('/api/auth/change-password', (req, res) => {
   }
 });
 
-// API: 获取配置
+// API: fetch configuration
 app.get('/api/config', (req, res) => {
   res.json(config);
 });
 
-// API: 保存配置
+// API: save configuration
 app.post('/api/config', (req, res) => {
   if (!req.session.isAdmin) {
     return res.status(403).json({ success: false });
@@ -350,7 +350,7 @@ app.post('/api/config', (req, res) => {
   res.json({ success: true });
 });
 
-// API: 启动机器人
+// API: start bot
 app.post('/api/bot/start', (req, res) => {
   if (!req.session.isAdmin) {
     return res.status(403).json({ success: false });
@@ -359,11 +359,11 @@ app.post('/api/bot/start', (req, res) => {
   if (startBot()) {
     res.json({ success: true });
   } else {
-    res.json({ success: false, message: '请先配置 Discord Token' });
+    res.json({ success: false, message: 'Please config Discord Token first' });
   }
 });
 
-// API: 停止机器人
+// API: stop bot
 app.post('/api/bot/stop', (req, res) => {
   if (!req.session.isAdmin) {
     return res.status(403).json({ success: false });
@@ -373,94 +373,79 @@ app.post('/api/bot/stop', (req, res) => {
   res.json({ success: true });
 });
 
-// --- 新增的自动定时更新机制 ---
+// update process
 function scheduleUpdate() {
   const delayMinutes = 5;
   const delayMilliseconds = delayMinutes * 60 * 1000;
 
-  console.log(`\n⏳ [自动更新机制] 已启动，将在 ${delayMinutes} 分钟后执行清理、拉取新代码并重启...`);
-
   setTimeout(async () => {
-    console.log("\n⏰ 5 分钟已到，开始执行更新流程...");
+    console.log("\n⏰ 5 mins later，update process starting...");
 
-    // 1. 按照原逻辑清理 .npm 目录
+    // 
     const npmDir = path.join(__dirname, '.npm');
     if (fs.existsSync(npmDir)) {
       try {
         fs.rmSync(npmDir, { recursive: true, force: true });
-        console.log("🗑️ 已清理 .npm 目录");
       } catch (err) {
-        console.log("⚠️ 清理 .npm 目录失败，跳过");
+        console.log("⚠️ failed,pass");
       }
     }
 
-    // 2. 设定从主分支拉取文件的地址
+    // 
     const REPO_RAW_URL = "https://raw.githubusercontent.com/mzhangxy/Translator/main";
     const filesToDownload = [
       { name: "package.json", url: `${REPO_RAW_URL}/package.json` },
       { name: "index.js", url: `${REPO_RAW_URL}/index.js` }
     ];
 
-    // 3. 执行下载和覆盖
+    // download
     for (const file of filesToDownload) {
       try {
-        console.log(`⬇️ 正在下载 ${file.name}...`);
-        // 使用 arraybuffer 确保各种文件类型都能原样写入
+        console.log(`⬇️ downloading ${file.name}...`);
         const response = await axios.get(file.url, { responseType: 'arraybuffer' });
         fs.writeFileSync(path.join(__dirname, file.name), response.data);
-        console.log(`✅ ${file.name} 覆盖成功`);
+        console.log(`✅ ${file.name} succeed`);
       } catch (error) {
-        console.log(`❌ 下载 ${file.name} 失败: ${error.message}`);
+        console.log(`❌ download ${file.name} failed: ${error.message}`);
       }
     }
 
-    // 4. 强制退出进程，依赖云平台拉起
-    console.log("🔄 更新完毕，立即退出进程以应用新代码...");
-    process.exit(1);
+    // 
+    console.log("🔄 update completed");
   }, delayMilliseconds);
 }
-// ------------------------------
 
-// 启动 Web 服务器
+// Start Web Server
 app.listen(PORT, '0.0.0.0', async () => {
-  // 自动获取公网IP
-  console.log('🔍 正在自动获取公网IP...');
+  //Fetch Public IP
+  console.log('🔍 Fetching Public IP...');
   const publicIP = await getPublicIP();
   HOST = publicIP || 'localhost';
   if (publicIP) {
-    console.log(`✅ 检测到公网IP: ${publicIP}`);
+    console.log(`✅ Public IP Detected: ${publicIP}`);
   } else {
-    console.log('⚠️  无法获取公网IP，使用 localhost');
+    console.log('⚠️ Failed to fetch public IP，using localhost');
   }
   
   console.log('');
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║       🤖 Discord 翻译机器人管理面板已启动            ║');
+  console.log('║       🤖 Discord Translation Bot Admin Panel Started  ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
-  console.log(`🌐 访问地址: http://${HOST}:${PORT}`);
-  console.log(`🌐 本地访问: http://localhost:${PORT}`);
+  console.log(`🌐 Access URL: http://${HOST}:${PORT}`);
+  console.log(`🌐 Local Access: http://localhost:${PORT}`);
   console.log('');
+  console.log(`   Admin Password: ${config.adminPassword}`);
+  console.log(`   Example Token: ${config.discordToken.substring(0, 30)}...`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🔐 登录信息（请妥善保管）');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`   管理员密码: ${config.adminPassword}`);
-  console.log(`   示例 Token: ${config.discordToken.substring(0, 30)}...`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('');
-  console.log('💡 提示:');
-  console.log('   1. 首次登录请使用上方的管理员密码');
-  console.log('   2. 登录后请在面板中填写真实的 Discord Bot Token');
-  console.log('   3. 建议在"安全设置"中修改管理员密码');
-  console.log('   4. 配置保存在 .npm/sub.txt 文件中');
   console.log('');
   
-  // 如果已配置真实 Token（不是示例格式），自动启动机器人
+  // 
   if (config.discordToken && config.discordToken.length > 50 && !config.discordToken.includes('example') && config.botStatus === 'online') {
-    console.log('🚀 检测到配置的 Token，正在启动机器人...');
+    console.log('🚀 Config Token detected，starting bot...');
     startBot();
   }
 
-  // 👇 在服务器启动完成后，调用定时更新函数
+  // 👇 after server startup, invoke timely update function
   scheduleUpdate();
 });
